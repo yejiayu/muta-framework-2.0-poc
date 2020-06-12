@@ -1,12 +1,16 @@
-use crate::primitive::{AccountID, Coin};
+use std::collections::HashMap;
+
+use crate::components::primitive::{AccountID, Coin};
 
 pub type ERC20ID = String;
 
+#[derive(Clone)]
 pub struct ERC20 {
     id: ERC20ID,
     symbol: String,
     supply: Coin,
     owner: AccountID,
+    approved_coin: HashMap<AccountID, Coin>,
 }
 
 impl ERC20 {
@@ -16,30 +20,26 @@ impl ERC20 {
             symbol,
             supply,
             owner,
+            approved_coin: HashMap::new(),
         }
     }
 
     pub fn create(symbol: String, supply: Coin, owner: AccountID) -> Self {
         Self {
-            id: symbol + &owner,
+            id: symbol.clone() + &owner,
             symbol,
             supply,
             owner,
+            approved_coin: HashMap::new(),
         }
     }
 
-    pub fn mint(self, coin: Coin) -> Self {
-        Self {
-            supply: self.supply.deposit(coin),
-            ..self
-        }
+    pub fn mint(&mut self, coin: Coin) {
+        self.supply.deposit(coin);
     }
 
-    pub fn burn(self, coin: Coin) -> Self {
-        Self {
-            supply: self.supply.withdraw(coin),
-            ..self
-        }
+    pub fn burn(&mut self, coin: Coin) {
+        self.supply.withdraw(coin);
     }
 
     pub fn get_id(&self) -> &ERC20ID {
@@ -50,8 +50,8 @@ impl ERC20 {
         &self.symbol
     }
 
-    pub fn get_supply(&self) -> &Coin {
-        &self.supply
+    pub fn get_supply(&self) -> Coin {
+        self.supply
     }
 
     pub fn get_owner(&self) -> &AccountID {
@@ -59,6 +59,7 @@ impl ERC20 {
     }
 }
 
+#[derive(Clone)]
 pub struct ERC20Balance {
     erc20: ERC20,
     amount: Coin,
@@ -69,34 +70,24 @@ impl ERC20Balance {
         Self { erc20, amount }
     }
 
-    pub fn transfer(self, from: ERC20Balance, value: Coin) -> (ERC20Balance, ERC20Balance) {
-        let to = self;
-
-        let from = from.withdraw(value.clone());
-        let to = to.deposit(value);
-
-        (to, from)
+    pub fn transfer(&mut self, to: &mut ERC20Balance, value: Coin) {
+        to.deposit(value);
+        self.withdraw(value);
     }
 
-    pub fn withdraw(self, value: Coin) -> Self {
-        Self { 
-            amount: self.amount.withdraw(value),
-            ..self
-        }
+    pub fn withdraw(&mut self, value: Coin) {
+        self.amount.withdraw(value);
     }
 
-    pub fn deposit(self, value: Coin) -> Self {
-        Self { 
-            amount: self.amount.deposit(value),
-            ..self
-        }
+    pub fn deposit(&mut self, value: Coin) {
+        self.amount.deposit(value);
     }
 
     pub fn get_erc20(&self) -> &ERC20 {
         &self.erc20
     }
 
-    pub fn get_amount(&self) -> &Coin {
-        &self.amount
+    pub fn get_amount(&self) -> Coin {
+        self.amount
     }
 }

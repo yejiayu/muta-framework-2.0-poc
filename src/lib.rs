@@ -1,10 +1,9 @@
-mod erc20;
-mod primitive;
+mod components;
 
 use std::collections::HashMap;
 
-use crate::primitive::AccountID;
-use crate::erc20::{ERC20, ERC20Balance, ERC20ID};
+use crate::components::erc20::{ERC20Balance, ERC20, ERC20ID};
+use crate::components::primitive::{AccountID, Coin};
 
 pub struct Repository {
     pub registered_ERC20: HashMap<ERC20ID, ERC20>,
@@ -13,7 +12,7 @@ pub struct Repository {
 
 impl Repository {
     pub fn new() -> Self {
-         Self {
+        Self {
             registered_ERC20: HashMap::new(),
             accounts: HashMap::new(),
         }
@@ -33,16 +32,34 @@ impl Account {
         }
     }
 
-    pub fn (self, ) -> Self {
-        self.assets.insert(balance.get_erc20().get_id().to_owned(), balance);
-        Self {
-            assets: self.assets,
-            ..self
-        }
+    pub fn deposit(&mut self, erc20: &ERC20, value: Coin) {
+        let balance = self
+            .assets
+            .entry(erc20.get_id().to_owned())
+            .or_insert(ERC20Balance::new(erc20.clone(), Coin::new(0)));
+
+        balance.deposit(value);
+    }
+
+    pub fn withdraw(&mut self, erc20: &ERC20, value: Coin) {
+        let balance = self.assets.get_mut(erc20.get_id()).expect("account withdraw");
+        balance.withdraw(value);
+    }
+
+    pub fn transfer(&mut self, to: &mut Account, erc20: &ERC20, value: Coin) {
+        to.deposit(erc20, value);
+        self.withdraw(erc20, value);
     }
 
     pub fn get_id(&self) -> &AccountID {
         &self.id
+    }
+
+    pub fn get_balance(&self, erc20: &ERC20) -> Coin {
+        match self.assets.get(erc20.get_id()) {
+            Some(balance) => balance.get_amount(),
+            None => Coin::new(0),
+        }
     }
 }
 
@@ -50,27 +67,38 @@ impl Account {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::{Repository, Account};
-    use crate::erc20::{ERC20};
-    use crate::primitive::{AccountID, Coin};
+    use crate::components::erc20::ERC20;
+    use crate::components::primitive::{AccountID, Coin};
+    use crate::{Account, Repository};
 
-    const ADMIN_ACCOUNT_ID: AccountID  = "admin".to_owned();
-    const USER_FOO_ACCOUNT_ID: AccountID  = "user_foo".to_owned();
+    const ADMIN_ACCOUNT_ID: &str = "admin";
+    const USER_FOO_ACCOUNT_ID: &str = "user_foo";
 
     #[test]
     fn erc20_test() {
         // create global state
-        let global_repo = Repository::new();
-    
+        let mut global_repo = Repository::new();
+
+        // create account
+        let mut admin_account = Account::new(ADMIN_ACCOUNT_ID.to_owned());
+        let mut user_account = Account::new(USER_FOO_ACCOUNT_ID.to_owned());
+
         // create muta token of erc20
-        let admin_account = Account::new(ADMIN_ACCOUNT_ID.to_owned());
-        let muta_token = ERC20::create("muta-token".to_owned(), Coin::new(1024), admin_account.get_id().to_owned());
-        admin_account.deposit_erc20()
-        
-        global_repo.registered_ERC20.insert(muta_token.get_id().to_owned(), muta_token);
+        let muta_token = ERC20::create(
+            "muta-token".to_owned(),
+            Coin::new(1024),
+            admin_account.get_id().to_owned(),
+        );
+        admin_account.deposit(&muta_token, muta_token.get_supply());
+        let muta_token_id = muta_token.get_id().clone();
+        global_repo
+            .registered_ERC20
+            .insert(muta_token.get_id().to_owned(), muta_token);
+        let muta_token = global_repo.registered_ERC20.get(&muta_token_id).unwrap();
 
         // transfer
-        ERC20::new(, symbol: String, supply: Coin, owner: AccountID)
-        assert_eq!(2 + 2, 4);
+        admin_account.transfer(&mut user_account, &muta_token, Coin::new(1024 / 2));
+
+        println!("admin token {:?} user token {:?}", admin_account.get_balance(&muta_token), user_account.get_balance(&muta_token));
     }
 }
