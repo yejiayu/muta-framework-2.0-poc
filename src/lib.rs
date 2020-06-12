@@ -42,7 +42,10 @@ impl Account {
     }
 
     pub fn withdraw(&mut self, erc20: &ERC20, value: Coin) {
-        let balance = self.assets.get_mut(erc20.get_id()).expect("account withdraw");
+        let balance = self
+            .assets
+            .get_mut(erc20.get_id())
+            .expect("account withdraw");
         balance.withdraw(value);
     }
 
@@ -99,6 +102,10 @@ mod tests {
         // transfer
         admin_account.transfer(&mut user_account, &muta_token, Coin::new(1024 / 2));
 
-        println!("admin token {:?} user token {:?}", admin_account.get_balance(&muta_token), user_account.get_balance(&muta_token));
+        println!(
+            "admin token {:?} user token {:?}",
+            admin_account.get_balance(&muta_token),
+            user_account.get_balance(&muta_token)
+        );
     }
 }
